@@ -12,7 +12,7 @@ app.use(express.json());
 const port = process.env.PORT || 8000;
 const uri = process.env.MONGO_URI;
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -30,6 +30,7 @@ async function run() {
     const jobCollection = database.collection("jobs");
     const companyCollection = database.collection("companies");
     const usersCollection = database.collection("user");
+    const applicationCollection = database.collection("applications");
 
     //find user
     app.get("/api/users", async (req, res) => {
@@ -45,29 +46,60 @@ async function run() {
       res.send(result);
     });
     //get job
+
+    // app.get("/api/jobs", async (req, res) => {
+    //   const query = {};
+    //   if (req.query.companyId) {
+    //     query.companyId = req.query.companyId;
+    //   }
+    //   if (req.query.status) {
+    //     query.status = req.query.status;
+    //   }
+    //   const cursor = jobCollection.find(query)
+    //   const result = await cursor.toArray();
+    //   res.send(result);
+    // });
+
     app.get("/api/jobs", async (req, res) => {
+      const { companyId, status, category, type, isRemote } = req.query;
       const query = {};
-      if (req.query.companyId) {
-        query.companyId = req.query.companyId;
+
+      if (companyId) query.companyId = companyId;
+      if (status) query.status = status;
+      if (category && category !== "all") query.jobCategory = category;
+      if (isRemote === "true") query.isRemote = true;
+
+      // type can be a single value or comma-separated multiple values
+      if (type) {
+        const types = type.split(",").filter(Boolean);
+        if (types.length > 0) {
+          query.jobType = { $in: types };
+        }
       }
-      if (req.query.status) {
-        query.status = req.query.status;
-      }
-      const cursor = jobCollection.find(query)
+
+      const cursor = jobCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
     });
 
+    // getJobById
+    app.get("/api/jobs/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = {
+        _id: new ObjectId(id),
+      };
+      const result = await jobCollection.findOne(query);
+      res.send(result);
+    });
 
     // get all company
 
-    app.get("/api/companies", async(req, res)=>{
+    app.get("/api/companies", async (req, res) => {
       const cursor = companyCollection.find();
       const result = await cursor.toArray();
       res.send(result || {});
-    })
+    });
     //post company
-
 
     app.post("/api/company", async (req, res) => {
       const company = req.body;
@@ -83,6 +115,13 @@ async function run() {
       }
       const result = await companyCollection.findOne(query);
       res.send(result || {});
+    });
+
+    // post application related api
+    app.post("/api/application", async (req, res) => {
+      const application = req.body;
+      const result = await applicationCollection.insertOne(application);
+      res.send(result);
     });
 
     await client.db("admin").command({ ping: 1 });
