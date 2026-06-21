@@ -31,6 +31,8 @@ async function run() {
     const companyCollection = database.collection("companies");
     const usersCollection = database.collection("user");
     const applicationCollection = database.collection("applications");
+    const planCollection = database.collection("plans");
+    const subscriptionCollection = database.collection("subscriptions");
 
     //find user
     app.get("/api/users", async (req, res) => {
@@ -117,11 +119,56 @@ async function run() {
       res.send(result || {});
     });
 
-    // post application related api
-    app.post("/api/application", async (req, res) => {
+    //application related api
+    app.get("/api/applications", async (req, res) => {
+      const query = {};
+      if (req.query.jobId) {
+        query.jobId = req.query.jobId;
+      }
+      if (req.query.applicantEmail) {
+        query.applicantEmail = req.query.applicantEmail;
+      }
+      const cursor = applicationCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.post("/api/applications", async (req, res) => {
       const application = req.body;
       const result = await applicationCollection.insertOne(application);
       res.send(result);
+    });
+
+    //plan related api
+    app.get("/api/plans", async (req, res) => {
+      const query = {};
+      if (req.query.plan_id) {
+        query.plan_id = req.query.plan_id;
+      }
+      const plan = await planCollection.findOne(query);
+      res.send(plan);
+    });
+
+    //subscription related api
+    app.post("/api/subscriptions", async (req, res) => {
+      const subscription = req.body;
+      const subInfo ={
+        ...subscription,
+        createdAt: new Date()
+      }
+      const result = await subscriptionCollection.insertOne(subInfo);
+      res.send(result);
+
+      //update user role to 
+      const filter = { email: subscription.email };
+      const updateDoc = {
+        $set: {
+          plan : subscription.planId,
+        },
+      };
+      const updateResult = await usersCollection.updateOne(filter, updateDoc);
+      res.send(updateResult);
+
     });
 
     await client.db("admin").command({ ping: 1 });
