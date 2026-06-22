@@ -101,6 +101,25 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result || {});
     });
+
+    app.patch("/api/companies/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateData = req.body; // { status: "approved" }
+
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = { $set: updateData }; // ✅ spreads the whole object
+
+      const result = await companyCollection.updateOne(filter, updateDoc);
+
+      if (result.modifiedCount === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Company not found or unchanged." });
+      }
+
+      res.json({ success: true, modifiedCount: result.modifiedCount });
+    });
+
     //post company
 
     app.post("/api/company", async (req, res) => {
@@ -152,23 +171,22 @@ async function run() {
     //subscription related api
     app.post("/api/subscriptions", async (req, res) => {
       const subscription = req.body;
-      const subInfo ={
+      const subInfo = {
         ...subscription,
-        createdAt: new Date()
-      }
+        createdAt: new Date(),
+      };
       const result = await subscriptionCollection.insertOne(subInfo);
       res.send(result);
 
-      //update user role to 
+      //update user role to
       const filter = { email: subscription.email };
       const updateDoc = {
         $set: {
-          plan : subscription.planId,
+          plan: subscription.planId,
         },
       };
       const updateResult = await usersCollection.updateOne(filter, updateDoc);
       res.send(updateResult);
-
     });
 
     await client.db("admin").command({ ping: 1 });
